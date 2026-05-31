@@ -59,7 +59,6 @@ def generate_global_localization_group():
         ),
         Node(
             package="ros_bridge",
-            package="ros_bridge",
             name="TFBroadcaster",
             parameters={"from_frame_override": "map", "to_frame_override": "odom"},
             inputs={"transform": "/tf/map_to_odom"}

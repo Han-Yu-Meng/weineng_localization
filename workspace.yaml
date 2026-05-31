@@ -6,3 +6,6 @@ repos:
   - name: "global_localization"
     url: "https://github.com/Han-Yu-Meng/global_localization"
     branch: "main"
+  - name: "pointcloud_converter"
+    url: "https://github.com/Han-Yu-Meng/pointcloud_converter"
+    branch: "main"
