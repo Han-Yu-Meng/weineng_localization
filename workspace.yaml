@@ -1,0 +1,8 @@
+name: "weineng_localization"
+repos:
+  - name: "ros_bridge"
+    url: "https://github.com/Han-Yu-Meng/ros_bridge"
+    branch: "main"
+  - name: "global_localization"
+    url: "https://github.com/Han-Yu-Meng/global_localization"
+    branch: "main"
