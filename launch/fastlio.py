@@ -20,6 +20,17 @@ def generate_fastlio_group():
             },
         ),
         Node(
+	    package="ros_bridge",
+	    name="TFBroadcaster",
+	    inputs={
+		"transform": "/tf_base_link_base_lidar",
+	    },
+	    parameters={
+		"from_frame_override": "base_link",
+		"to_frame_override": "base_lidar",
+	    },
+	),
+        Node(
             package="ros_bridge",
             name="PointCloudSubscriber",
             outputs={
