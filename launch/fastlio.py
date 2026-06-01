@@ -1,4 +1,6 @@
 from fins import Node, Group, LaunchDescription, Agent, DefaultSource
+import os
+import subprocess
 
 def generate_fastlio_group():
     return Group([
@@ -199,6 +201,14 @@ if __name__ == "__main__":
             ld = generate_launch()
         
         agent.add_config("config/fastlio.yaml")
-
+        agent.log_level("INFO")
         agent.launch(ld)
+        
+        bag_name = "rosbag2_2026_06_01-20_58_32"
+        if os.path.exists(bag_name):
+            print(f"Playing {bag_name}...")
+            subprocess.Popen(["ros2", "bag", "play", bag_name])
+        else:
+            print(f"{bag_name} not found, skip playing.")
+            
         agent.spin()

@@ -2,3 +2,4 @@ ros_bridge
 global_localization
 pointcloud_converter
 FAST_LIO
+rosbag*
