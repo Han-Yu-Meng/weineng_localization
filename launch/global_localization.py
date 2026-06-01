@@ -1,40 +1,14 @@
 from fins import Node, Group, LaunchDescription, Agent, DefaultSource
+from fastlio import generate_fastlio_group
 
 def generate_global_localization_group():
     return Group([
         Node(
-            package="ros_bridge",
-            name="PointCloudPublisher",
-            inputs={
-                "msg": "/localization/cloud_registered",
-            },
-            parameters={
-                "topic": "/cloud_registered",
-                "history": "Keep Last",
-                "depth": "10",
-                "reliability": "Reliable",
-                "durability": "Volatile",
-            },
-        ),
-        Node(
-            package="ros_bridge",
-            name="LookupTransform",
-            outputs={
-                "transform": "/tf/odom_to_base",
-            },
-            parameters={
-                "from_frame": "odom",
-                "to_frame": "base_link",
-                "timeout_ms": "100",
-                "frequency": "50.000000",
-            },
-        ),
-        Node(
             package="global_localization",
             name="GlobalLocalization",
             inputs={
-                "cloud": "/localization/cloud_registered",
-                "$T_{odom}^{baselink}$": "/tf/odom_to_base",
+                "cloud": "/cloud_registered",
+                "$T_{odom}^{baselink}$": "/tf_odom_base",
             },
             outputs={
                 "global_map_viz": "/localization/global_map_viz_internal",
@@ -115,7 +89,8 @@ def generate_global_localization_group():
 
 def generate_launch():
     return LaunchDescription(groups=[
-        generate_global_localization_group()
+        generate_global_localization_group(),
+        generate_fastlio_group()
     ])
 
 if __name__ == "__main__":
@@ -124,6 +99,7 @@ if __name__ == "__main__":
             ld = generate_launch()
         
         agent.add_config("config/global_localization.yaml")
+        agent.add_config("config/fastlio.yaml")
 
         agent.launch(ld)
         agent.spin()
