@@ -15,3 +15,6 @@ repos:
   - name: "gridmap_server"
     url: "https://github.com/Han-Yu-Meng/gridmap_server"
     branch: "main"
+  - name: "airy_preprocess"
+    url: "https://github.com/Han-Yu-Meng/airy_preprocess"
+    branch: "main"
