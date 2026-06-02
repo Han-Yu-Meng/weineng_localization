@@ -1,11 +1,12 @@
 from fins import Node, Group, LaunchDescription, Agent, DefaultSource
-from fastlio import generate_fastlio_group
-from gridmap import generate_gridmap_group
+from fastlio import fastlio_group
+from gridmap import gridmap_group
+from sensor import sensor_group
 import os
 import subprocess
 import argparse
 
-def generate_global_localization_group():
+def global_localization_group():
     return Group([
         Node(
             package="global_localization",
@@ -91,11 +92,12 @@ def generate_global_localization_group():
         ),
     ])
 
-def generate_launch():
+def launch():
     return LaunchDescription(groups=[
-        generate_global_localization_group(),
-        generate_fastlio_group(),
-        generate_gridmap_group()
+        sensor_group(),
+        fastlio_group(),
+        global_localization_group(),
+        gridmap_group()
     ])
 
 if __name__ == "__main__":
@@ -105,22 +107,28 @@ if __name__ == "__main__":
 
     with Agent(name="global_localization", port=1111) as agent:
         with DefaultSource("weineng_localization"):
-            ld = generate_launch()
+            ld = launch()
         
-        agent.add_config("config/global_localization.yaml")
-        agent.add_config("config/fastlio.yaml")
+        agent.add_config_dir("config")
         agent.log_level("INFO")
         agent.enable_performance_monitor()
         
         agent.launch(ld)
         
+        bag_process = None
         if args.bag:
             if os.path.exists(args.bag):
                 print(f"Playing {args.bag}...")
-                subprocess.Popen(["ros2", "bag", "play", args.bag])
+                bag_process = subprocess.Popen(["ros2", "bag", "play", args.bag])
             else:
                 print(f"Error: Bag file/directory '{args.bag}' not found.")
         else:
             print("No bag provided, skipping playback.")
             
-        agent.spin()
+        try:
+            agent.spin()
+        finally:
+            if bag_process:
+                print("Stopping bag playback...")
+                bag_process.terminate()
+                bag_process.wait()

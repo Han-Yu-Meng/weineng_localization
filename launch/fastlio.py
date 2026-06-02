@@ -1,66 +1,11 @@
 from fins import Node, Group, LaunchDescription, Agent, DefaultSource
+from sensor import sensor_group
 import os
 import subprocess
 import argparse
 
-def generate_fastlio_group():
+def fastlio_group():
     return Group([
-        Node(
-            package="ros_bridge",
-            name="TransformRPY",
-            outputs={
-                "transform": "/tf_base_link_base_lidar",
-            },
-            parameters={
-                "tx": "0.08521",
-                "ty": "0.000000",
-                "tz": "0.0333",
-                "roll": "0.000000", # 角度值
-                "pitch": "40.0",
-                "yaw": "0.000000",
-                "from_frame": "base_link",
-                "to_frame": "base_lidar",
-            },
-        ),
-        Node(
-	    package="ros_bridge",
-	    name="TFBroadcaster",
-	    inputs={
-		"transform": "/tf_base_link_base_lidar",
-	    },
-	    parameters={
-		"from_frame_override": "base_link",
-		"to_frame_override": "base_lidar",
-	    },
-	),
-        Node(
-            package="ros_bridge",
-            name="PointCloudSubscriber",
-            outputs={
-                "msg": "/rslidar_points",
-            },
-            parameters={
-                "topic": "/rslidar_points",
-                "history": "Keep Last",
-                "depth": "10",
-                "reliability": "Reliable",
-                "durability": "Volatile",
-            },
-        ),
-        Node(
-            package="ros_bridge",
-            name="ImuSubscriber",
-            outputs={
-                "msg": "/rslidar_imu_data",
-            },
-            parameters={
-                "topic": "/rslidar_imu_data",
-                "history": "Keep Last",
-                "depth": "100",
-                "reliability": "Best Effort",
-                "durability": "Volatile",
-            },
-        ),
         Node(
             package="FAST_LIO",
             name="FastLIO",
@@ -134,29 +79,22 @@ def generate_fastlio_group():
             },
         ),
         Node(
-	    package="ros_bridge",
-	    name="OdometryPublisher",
-	    inputs={
-		"msg": "/Odometry",
-	    },
-	    parameters={
-		"topic": "/Odometry",
-		"history": "Keep Last",
-		"depth": "10",
-		"reliability": "Reliable",
-		"durability": "Volatile",
-	    },
-	),
-	#Node(
-	#    package="ros_bridge",
-	#    name="TFLogger",
-	#    inputs={
-	#	"transform": "/tf_odom_base",
-	#    },
-	#),
+            package="ros_bridge",
+            name="OdometryPublisher",
+            inputs={
+                "msg": "/Odometry",
+            },
+            parameters={
+                "topic": "/Odometry",
+                "history": "Keep Last",
+                "depth": "10",
+                "reliability": "Reliable",
+                "durability": "Volatile",
+            },
+        ),
     ])
     
-def generate_map_odom_group():
+def map_odom_group():
     return Group([
         Node(
             package="ros_bridge",
@@ -189,10 +127,11 @@ def generate_map_odom_group():
     ])
     
 
-def generate_launch():
+def launch():
     return LaunchDescription(groups=[
-        generate_fastlio_group(),
-        generate_map_odom_group()
+        sensor_group(),
+        fastlio_group(),
+        map_odom_group()
     ])
 
 
@@ -203,21 +142,28 @@ if __name__ == "__main__":
 
     with Agent(name="fastlio", port=1896) as agent:
         with DefaultSource("weineng_localization"):
-            ld = generate_launch()
+            ld = launch()
         
-        agent.add_config("config/fastlio.yaml")
-        agent.log_level("INFO")
+        agent.add_config_dir("config")
+        agent.log_level("DEBUG")
         agent.enable_performance_monitor()
 
         agent.launch(ld)
         
+        bag_process = None
         if args.bag:
             if os.path.exists(args.bag):
                 print(f"Playing {args.bag}...")
-                subprocess.Popen(["ros2", "bag", "play", args.bag])
+                bag_process = subprocess.Popen(["ros2", "bag", "play", args.bag])
             else:
                 print(f"Error: Bag file/directory '{args.bag}' not found.")
         else:
             print("No bag provided, skipping playback.")
             
-        agent.spin()
+        try:
+            agent.spin()
+        finally:
+            if bag_process:
+                print("Stopping bag playback...")
+                bag_process.terminate()
+                bag_process.wait()

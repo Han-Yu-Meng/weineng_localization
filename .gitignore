@@ -4,5 +4,6 @@ pointcloud_converter
 FAST_LIO
 rosbag*
 gridmap_server
+airy_preprocess
 
 __pycache__

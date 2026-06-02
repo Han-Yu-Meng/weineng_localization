@@ -1,6 +1,6 @@
 from fins import Node, Group
 
-def generate_gridmap_group():
+def gridmap_group():
     return Group([
         Node(
             package="gridmap_server",
@@ -13,18 +13,18 @@ def generate_gridmap_group():
             },
         ),
         Node(
-	    package="ros_bridge",
-	    name="OccupancyGridPublisher",
-	    inputs={
-		"msg": "/global_grid_map",
-	    },
-	    parameters={
-		"topic": "/map",
-		"history": "Keep Last",
-		"depth": "10",
-		"reliability": "Reliable",
-		"durability": "Transient Local",
-	    },
-	),
+            package="ros_bridge",
+            name="OccupancyGridPublisher",
+            inputs={
+                "msg": "/global_grid_map",
+            },
+            parameters={
+                "topic": "/map",
+                "history": "Keep Last",
+                "depth": "10",
+                "reliability": "Reliable",
+                "durability": "Transient Local",
+            },
+        ),
     ])
     
