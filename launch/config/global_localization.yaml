@@ -1,10 +1,10 @@
 GlobalLocalization:
   num_threads: 8
   score_threshold: 0.3
-  accumulation_time: 1.0
-  min_level_res: 0.5
+  accumulation_time: 0.2
+  min_level_res: 0.2
   max_level: 5
-  global_leaf_size: 0.50
+  global_leaf_size: 0.2
   registered_leaf_size: 0.05
   bbs_leaf_size: 0.5
   viz_leaf_size: 0.2

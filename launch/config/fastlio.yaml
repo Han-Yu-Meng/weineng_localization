@@ -1,7 +1,7 @@
 FastLIO:
   max_iteration: 4 # max iteration
-  filter_size_surf: 0.2 # filter size of surface
-  filter_size_map: 0.2 # filter size of map
+  filter_size_surf: 0.5 # filter size of surface
+  filter_size_map: 0.5 # filter size of map
   cube_side_length: 200 # cube side length
   common:
     initial_frame: "odom" # initial frame
@@ -37,6 +37,7 @@ FastLIO:
     det_range: 50.0 # detection range
     extrinsic_est_en: false # enable extrinsic estimation
     extrinsic_T: [0.004250, 0.004180, -0.004460] # extrinsic translation
-    extrinsic_R: [0.0033883,  -0.99997669,  0.00592802,
-                 -0.99999315, -0.00339705, -0.00146638,
-                  0.00148648, -0.00592301, -0.99998135] # 从驱动里面读取
+    extrinsic_R: [0.00065158, -0.99994173, 0.01077168,
+                  -0.99994062, -0.00076855, -0.01086658,
+                  0.01087422, -0.01076396, -0.99988285] # 使用 utils/calibration.py 读取
+

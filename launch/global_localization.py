@@ -1,5 +1,8 @@
 from fins import Node, Group, LaunchDescription, Agent, DefaultSource
 from fastlio import generate_fastlio_group
+from gridmap import generate_gridmap_group
+import os
+import subprocess
 
 def generate_global_localization_group():
     return Group([
@@ -90,11 +93,12 @@ def generate_global_localization_group():
 def generate_launch():
     return LaunchDescription(groups=[
         generate_global_localization_group(),
-        generate_fastlio_group()
+        generate_fastlio_group(),
+        generate_gridmap_group()
     ])
 
 if __name__ == "__main__":
-    with Agent(name="global_localization", port=1896) as agent:
+    with Agent(name="global_localization", port=7777) as agent:
         with DefaultSource("weineng_localization"):
             ld = generate_launch()
         
@@ -102,4 +106,12 @@ if __name__ == "__main__":
         agent.add_config("config/fastlio.yaml")
 
         agent.launch(ld)
+        """
+        bag_name = "rosbag2_2026_06_01-20_58_32"
+        if os.path.exists(bag_name):
+            print(f"Playing {bag_name}...")
+            subprocess.Popen(["ros2", "bag", "play", bag_name])
+        else:
+            print(f"{bag_name} not found, skip playing.")"""
+            
         agent.spin()

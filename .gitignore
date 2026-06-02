@@ -3,3 +3,6 @@ global_localization
 pointcloud_converter
 FAST_LIO
 rosbag*
+gridmap_server
+
+__pycache__/*

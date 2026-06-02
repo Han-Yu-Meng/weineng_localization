@@ -12,3 +12,6 @@ repos:
   - name: "pointcloud_converter"
     url: "https://github.com/Han-Yu-Meng/pointcloud_converter"
     branch: "main"
+  - name: "gridmap_server"
+    url: "https://github.com/Han-Yu-Meng/gridmap_server"
+    branch: "main"

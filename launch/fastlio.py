@@ -204,11 +204,11 @@ if __name__ == "__main__":
         agent.log_level("INFO")
         agent.launch(ld)
         
-        bag_name = "rosbag2_2026_06_01-20_58_32"
+        """bag_name = "rosbag2_2026_06_01-20_58_32"
         if os.path.exists(bag_name):
             print(f"Playing {bag_name}...")
             subprocess.Popen(["ros2", "bag", "play", bag_name])
         else:
-            print(f"{bag_name} not found, skip playing.")
+            print(f"{bag_name} not found, skip playing.")"""
             
         agent.spin()
