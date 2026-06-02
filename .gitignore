@@ -5,4 +5,4 @@ FAST_LIO
 rosbag*
 gridmap_server
 
-__pycache__/*
+__pycache__

@@ -3,6 +3,7 @@ from fastlio import generate_fastlio_group
 from gridmap import generate_gridmap_group
 import os
 import subprocess
+import argparse
 
 def generate_global_localization_group():
     return Group([
@@ -98,20 +99,28 @@ def generate_launch():
     ])
 
 if __name__ == "__main__":
-    with Agent(name="global_localization", port=7777) as agent:
+    parser = argparse.ArgumentParser(description="Launch localization with optional bag playback.")
+    parser.add_argument("--bag", type=str, help="Path to the ROS2 bag to play", default=None)
+    args = parser.parse_args()
+
+    with Agent(name="global_localization", port=1111) as agent:
         with DefaultSource("weineng_localization"):
             ld = generate_launch()
         
         agent.add_config("config/global_localization.yaml")
         agent.add_config("config/fastlio.yaml")
-
+        agent.log_level("INFO")
+        agent.enable_performance_monitor()
+        
         agent.launch(ld)
-        """
-        bag_name = "rosbag2_2026_06_01-20_58_32"
-        if os.path.exists(bag_name):
-            print(f"Playing {bag_name}...")
-            subprocess.Popen(["ros2", "bag", "play", bag_name])
+        
+        if args.bag:
+            if os.path.exists(args.bag):
+                print(f"Playing {args.bag}...")
+                subprocess.Popen(["ros2", "bag", "play", args.bag])
+            else:
+                print(f"Error: Bag file/directory '{args.bag}' not found.")
         else:
-            print(f"{bag_name} not found, skip playing.")"""
+            print("No bag provided, skipping playback.")
             
         agent.spin()

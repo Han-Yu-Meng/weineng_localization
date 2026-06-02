@@ -1,14 +1,14 @@
 GlobalLocalization:
   num_threads: 8
   score_threshold: 0.3
-  accumulation_time: 0.2
+  accumulation_time: 1.0
   min_level_res: 0.2
   max_level: 5
   global_leaf_size: 0.2
   registered_leaf_size: 0.05
   bbs_leaf_size: 0.5
   viz_leaf_size: 0.2
-  max_dist_sq_fine: 2.0
+  max_dist_sq_fine: 0.4
   max_gicp_error: 5000
   voxel_dir: "/home/fins/Map/YunJing_Airy/voxelmap"
   map_dir: "/home/fins/Map/YunJing_Airy/map/map.pcd"
