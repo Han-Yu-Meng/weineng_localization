@@ -5,5 +5,6 @@ FAST_LIO
 rosbag*
 gridmap_server
 airy_preprocess
+spinning
 
 __pycache__
