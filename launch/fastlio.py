@@ -141,14 +141,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     with Agent(name="fastlio", port=1896) as agent:
-        with DefaultSource("weineng_localization"):
-            ld = launch()
-        
         agent.add_config_dir("config")
-        agent.log_level("DEBUG")
-        agent.enable_performance_monitor()
+        agent.log_level("INFO")
+        # agent.enable_performance_monitor()
 
-        agent.launch(ld)
+        with DefaultSource("weineng_localization"):
+            agent.launch(
+                sensor_group(),
+                fastlio_group(),
+                map_odom_group()
+            )
         
         bag_process = None
         if args.bag:

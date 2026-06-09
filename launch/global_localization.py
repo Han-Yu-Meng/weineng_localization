@@ -92,28 +92,22 @@ def global_localization_group():
         ),
     ])
 
-def launch():
-    return LaunchDescription(groups=[
-        sensor_group(),
-        fastlio_group(),
-        global_localization_group(),
-        gridmap_group()
-    ])
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Launch localization with optional bag playback.")
     parser.add_argument("--bag", type=str, help="Path to the ROS2 bag to play", default=None)
     args = parser.parse_args()
 
-    with Agent(name="global_localization", port=1111) as agent:
-        with DefaultSource("weineng_localization"):
-            ld = launch()
-        
+    with Agent(name="global_localization", port=2222) as agent:
         agent.add_config_dir("config")
         agent.log_level("INFO")
-        agent.enable_performance_monitor()
+        # agent.enable_performance_monitor()
         
-        agent.launch(ld)
+        with DefaultSource("weineng_localization"):
+            agent.launch(
+                sensor_group(),
+                fastlio_group(),
+                global_localization_group()
+            )
         
         bag_process = None
         if args.bag:

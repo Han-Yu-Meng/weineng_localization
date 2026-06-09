@@ -7,8 +7,8 @@ GlobalLocalization:
   global_leaf_size: 0.2
   registered_leaf_size: 0.05
   bbs_leaf_size: 0.5
-  viz_leaf_size: 0.2
+  viz_leaf_size: 0.05
   max_dist_sq_fine: 0.4
   max_gicp_error: 5000
-  voxel_dir: "/home/fins/Map/YunJing_Airy/voxelmap"
-  map_dir: "/home/fins/Map/YunJing_Airy/map/map.pcd"
+  voxel_dir: "/home/fins/Map/Weineng/voxelmap"
+  map_dir: "/home/fins/Map/Weineng/map/map.pcd"
