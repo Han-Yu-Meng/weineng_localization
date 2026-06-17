@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, DurabilityPolicy
 from sensor_msgs.msg import PointCloud2
 from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import PoseStamped
@@ -63,7 +64,8 @@ class CloudToMapAdapter(Node):
         # 发布者与订阅者
         self.cloud_sub = self.create_subscription(PointCloud2, '/cloud_registered', self.cloud_callback, 10)
         self.pose_pub = self.create_publisher(PoseStamped, '/localization_pose', 10)
-        self.map_pub = self.create_publisher(OccupancyGrid, '/map', 10)
+        map_qos = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.map_pub = self.create_publisher(OccupancyGrid, '/map', map_qos)
 
         # 服务
         self.start_srv = self.create_service(Trigger, '/start_mapping', self.start_mapping_callback)
