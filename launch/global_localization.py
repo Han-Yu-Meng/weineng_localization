@@ -100,13 +100,14 @@ if __name__ == "__main__":
     with Agent(name="global_localization", port=2222) as agent:
         agent.add_config_dir("config")
         agent.log_level("INFO")
-        # agent.enable_performance_monitor()
+        agent.enable_performance_monitor()
         
         with DefaultSource("weineng_localization"):
             agent.launch(
                 sensor_group(),
                 fastlio_group(),
-                global_localization_group()
+                global_localization_group(),
+                gridmap_group()
             )
         
         bag_process = None

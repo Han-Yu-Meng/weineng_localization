@@ -8,7 +8,11 @@ GlobalLocalization:
   registered_leaf_size: 0.05
   bbs_leaf_size: 0.5
   viz_leaf_size: 0.05
-  max_dist_sq_fine: 0.4
+  max_dist_sq_fine: 1.5
   max_gicp_error: 5000
+  tracking_interval: 2.0
+  smooth_enabled: true
+  smooth_alpha: 0.3
+  planar_constraint: false
   voxel_dir: "/home/fins/Map/Weineng/voxelmap"
   map_dir: "/home/fins/Map/Weineng/map/map.pcd"

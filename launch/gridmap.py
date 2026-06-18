@@ -6,17 +6,17 @@ def gridmap_group():
             package="gridmap_server",
             name="GridMapServer",
             outputs={
-                "global_grid_map": "/global_grid_map",
+                "global_grid_map": "/map",
             },
             parameters={
-                "map_yaml_path": "/home/fins/Map/YunJing_Airy/map/map.yaml",
+                "map_yaml_path": "/home/fins/Map/Weineng/map/map.yaml",
             },
         ),
         Node(
             package="ros_bridge",
             name="OccupancyGridPublisher",
             inputs={
-                "msg": "/global_grid_map",
+                "msg": "/map",
             },
             parameters={
                 "topic": "/map",

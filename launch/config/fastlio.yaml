@@ -20,7 +20,7 @@ FastLIO:
     scan_rate: 10 # scan rate
     
     feature_extract_enable: false # enable feature extraction
-    point_filter_num: 4 # point filter number
+    point_filter_num: 8 # point filter number
     det_range: 10.0 # lidar detection range
     max_height: 5.5 # lidar max height
     divide_sub_cloud: false # divide point cloud into sub-clouds
