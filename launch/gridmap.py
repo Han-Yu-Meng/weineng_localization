@@ -1,6 +1,7 @@
+import os
 from fins import Node, Group
 
-def gridmap_group():
+def gridmap_group(map_name: str = "YunJing_Full"):
     return Group([
         Node(
             package="gridmap_server",
@@ -9,7 +10,7 @@ def gridmap_group():
                 "global_grid_map": "/map",
             },
             parameters={
-                "map_yaml_path": "/home/fins/Map/Weineng/map/map.yaml",
+                "map_yaml_path": os.path.join(os.path.expanduser("~"), "Map", map_name, "map", "map.yaml"),
             },
         ),
         Node(
@@ -27,4 +28,3 @@ def gridmap_group():
             },
         ),
     ])
-    

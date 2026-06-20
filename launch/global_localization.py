@@ -1,10 +1,11 @@
-from fins import Node, Group, LaunchDescription, Agent, DefaultSource
-from fastlio import fastlio_group
-from gridmap import gridmap_group
-from sensor import sensor_group
 import os
-import subprocess
+import sys
 import argparse
+import subprocess
+from fins import Node, Group, Agent, DefaultSource
+from sensor import sensor_group
+from gridmap import gridmap_group
+from fastlio import fastlio_group
 
 def global_localization_group():
     return Group([
@@ -93,37 +94,38 @@ def global_localization_group():
     ])
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Launch localization with optional bag playback.")
-    parser.add_argument("--bag", type=str, help="Path to the ROS2 bag to play", default=None)
+    parser = argparse.ArgumentParser(description="全局定位启动脚本")
+    parser.add_argument("--map", type=str, default="YunJing_Airy",
+                        help="地图名称")
     args = parser.parse_args()
 
-    with Agent(name="global_localization", port=2222) as agent:
-        agent.add_config_dir("config")
-        agent.log_level("INFO")
-        agent.enable_performance_monitor()
-        
+    map_name = args.map
+    home_dir = os.path.expanduser("~")
+    map_base = os.path.join(home_dir, "Map", map_name)
+
+    # geojson_file = os.path.join(map_base, "geojson", "graph.json")
+    # geojson_publisher_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "geojson_publisher.py")
+    # geojson_proc = subprocess.Popen(
+    #     [sys.executable, geojson_publisher_script, geojson_file],
+    #     start_new_session=True,
+    # )
+
+    with Agent(name="global_localization") as agent:
+        agent.add_config("config/fastlio.yaml")
+        agent.add_config("config/preprocess.yaml")
+        agent.add_config("config/global_localization.yaml",
+                         overrides = {
+                             "GlobalLocalization.voxel_dir": os.path.join(map_base, "voxelmap"),
+                             "GlobalLocalization.map_dir": os.path.join(map_base, "map", "map.pcd"),
+                         })
+        # agent.enable_debugging(full_backtrace = True)
+
         with DefaultSource("weineng_localization"):
             agent.launch(
                 sensor_group(),
+                gridmap_group(map_name=map_name),
                 fastlio_group(),
-                global_localization_group(),
-                gridmap_group()
+                global_localization_group()
             )
-        
-        bag_process = None
-        if args.bag:
-            if os.path.exists(args.bag):
-                print(f"Playing {args.bag}...")
-                bag_process = subprocess.Popen(["ros2", "bag", "play", args.bag])
-            else:
-                print(f"Error: Bag file/directory '{args.bag}' not found.")
-        else:
-            print("No bag provided, skipping playback.")
-            
-        try:
-            agent.spin()
-        finally:
-            if bag_process:
-                print("Stopping bag playback...")
-                bag_process.terminate()
-                bag_process.wait()
+
+        agent.spin()
