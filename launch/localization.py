@@ -63,7 +63,7 @@ class LocalizationOrchestrator(Node):
         self.global_loc_proc = None
         self._intentional_stop = False # 用于标记是否为主动终止进程
 
-        # 核心修改：记录磁盘地图文件最近一次被载入时的时间戳（用于监控热重载）
+        # 磁盘地图文件最近一次被载入时的时间戳（用于监控热重载）
         self.last_pgm_mtime = 0.0
         self.last_yaml_mtime = 0.0
 
@@ -72,8 +72,9 @@ class LocalizationOrchestrator(Node):
         self.origin_x = -(self.width * self.resolution) / 2.0
         self.origin_y = -(self.height * self.resolution) / 2.0
         
-        # 用于累积 3D 点云的列表
-        self.accumulated_points = [] 
+        # 核心优化：使用 Open3D 增量容器代替无休止的原始列表
+        self.main_pcd = o3d.geometry.PointCloud()
+        self.temp_points_buffer = []  # 缓存较小数量的帧，定期合并下采样
 
         # === 3. TF 与 ROS 接口 ===
         self.tf_buffer = Buffer()
@@ -129,19 +130,16 @@ class LocalizationOrchestrator(Node):
             pgm_changed = False
             yaml_changed = False
 
-            # 校验 pgm 修改时间
             if os.path.exists(self.pgm_path):
                 current_pgm_mtime = os.path.getmtime(self.pgm_path)
                 if current_pgm_mtime != self.last_pgm_mtime:
                     pgm_changed = True
 
-            # 校验 yaml 修改时间
             if os.path.exists(self.yaml_path):
                 current_yaml_mtime = os.path.getmtime(self.yaml_path)
                 if current_yaml_mtime != self.last_yaml_mtime:
                     yaml_changed = True
 
-            # 触发重新载入
             if pgm_changed or yaml_changed:
                 self.get_logger().warn("检测到磁盘 2D 地图文件（pgm/yaml）发生更改，正在执行热重载并重新发布...")
                 self.load_and_publish_2d_map()
@@ -175,9 +173,12 @@ class LocalizationOrchestrator(Node):
         self.stop_all_processes()
         self.mode = "MAPPING"
         
-        # 重置地图数据时初始化为全 0（已知可行）
+        # 重置地图数据时初始化为全 0
         self.grid = np.zeros((self.height, self.width), dtype=np.int8)
-        self.accumulated_points = []
+        
+        # 核心修改：重置增量点云容器
+        self.main_pcd = o3d.geometry.PointCloud()
+        self.temp_points_buffer = []
 
         # 启动 fastlio.py
         fastlio_script = os.path.join(self.script_dir, "fastlio.py")
@@ -255,14 +256,17 @@ class LocalizationOrchestrator(Node):
         try:
             # 提取点云坐标
             points_gen = pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True)
-            # 显式转换为标准的 (N, 3) 二维浮点数数组
             points = np.array([[p[0], p[1], p[2]] for p in points_gen], dtype=np.float32)
             
             if len(points) == 0:
                 return
 
-            # 1. 累积 3D 点云
-            self.accumulated_points.append(points)
+            # 核心优化：将点云追加到临时缓冲区，而不是直接追加到大列表
+            self.temp_points_buffer.append(points)
+            
+            # 每收到 50 帧点云（约5秒），触发一次在线合并和 5cm 降采样，释放内存
+            if len(self.temp_points_buffer) >= 50:
+                self.merge_buffer_points()
 
             # 2. 生成 2D 栅格地图
             T_odom_cloud = self.tf_buffer.lookup_transform(
@@ -307,20 +311,45 @@ class LocalizationOrchestrator(Node):
         except Exception as e:
             pass
 
+    def merge_buffer_points(self):
+        """核心优化函数：在线对积累的数据进行合并与 5cm 体素滤波，将内存限制在恒定范围内"""
+        if not self.temp_points_buffer:
+            return
+        
+        try:
+            # 整合当前的临时缓存
+            temp_array = np.vstack(self.temp_points_buffer)
+            self.temp_points_buffer = [] # 清空缓存列表
+
+            new_pcd = o3d.geometry.PointCloud()
+            new_pcd.points = o3d.utility.Vector3dVector(temp_array)
+
+            # 合并入全局 Open3D 点云
+            if len(self.main_pcd.points) > 0:
+                self.main_pcd += new_pcd
+            else:
+                self.main_pcd = new_pcd
+
+            # 在线 5cm 体素下采样，合并重复点，释放内存
+            self.main_pcd = self.main_pcd.voxel_down_sample(voxel_size=0.05)
+            
+        except Exception as e:
+            self.get_logger().error(f"在线点云增量滤波异常: {e}")
+
     def save_3d_map(self):
-        if not self.accumulated_points:
+        # 1. 停止时，先将缓冲区残留的点云合并
+        self.merge_buffer_points()
+
+        if len(self.main_pcd.points) == 0:
             self.get_logger().warn("没有接收到3D点云，无法保存 map.pcd")
             return
             
-        self.get_logger().info("正在合并并执行 Voxel Filter (5cm) 处理3D地图...")
-        all_points = np.vstack(self.accumulated_points)
-        
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(all_points)
-        
-        downpcd = pcd.voxel_down_sample(voxel_size=0.05)
-        o3d.io.write_point_cloud(self.pcd_path, downpcd)
-        self.get_logger().info(f"3D地图已保存至: {self.pcd_path}")
+        self.get_logger().info("正在保存3D点云地图...")
+        try:
+            o3d.io.write_point_cloud(self.pcd_path, self.main_pcd)
+            self.get_logger().info(f"3D地图已成功保存至: {self.pcd_path}")
+        except Exception as e:
+            self.get_logger().error(f"3D点云地图写入磁盘失败: {e}")
 
     def save_2d_map(self):
         try:
