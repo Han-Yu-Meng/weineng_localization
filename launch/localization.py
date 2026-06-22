@@ -15,6 +15,7 @@ import cv2
 import yaml
 import math
 import socket
+import argparse
 import threading
 import subprocess
 import numpy as np
@@ -25,16 +26,18 @@ import tf2_ros
 from tf2_ros import Buffer, TransformListener
 
 class LocalizationOrchestrator(Node):
-    def __init__(self):
+    def __init__(self, map_name='Weineng'):
         super().__init__('weineng_localization')
 
         # === 1. 参数声明与路径准备 ===
-        self.declare_parameter('map_name', 'Weineng')
         self.declare_parameter('min_z', 0.2)
         self.declare_parameter('max_z', 2.0)
         self.declare_parameter('resolution', 0.05)
         self.declare_parameter('width', 1000)
         self.declare_parameter('height', 1000)
+        
+        # 声明 map_name 参数，并以传入的 map_name 作为默认值
+        self.declare_parameter('map_name', map_name)
 
         self.map_name = self.get_parameter('map_name').value
         self.min_z = self.get_parameter('min_z').value
@@ -58,9 +61,14 @@ class LocalizationOrchestrator(Node):
         self.mode = None # "MAPPING" or "LOCALIZATION"
         self.fastlio_proc = None
         self.global_loc_proc = None
-        self._intentional_stop = False # 用于标记是否为主动终止进程，防误判重启
+        self._intentional_stop = False # 用于标记是否为主动终止进程
 
-        self.grid = np.full((self.height, self.width), -1, dtype=np.int8)
+        # 核心修改：记录磁盘地图文件最近一次被载入时的时间戳（用于监控热重载）
+        self.last_pgm_mtime = 0.0
+        self.last_yaml_mtime = 0.0
+
+        # 初始化为 0（代表全图默认已知可行，没有未知区域 -1）
+        self.grid = np.zeros((self.height, self.width), dtype=np.int8)
         self.origin_x = -(self.width * self.resolution) / 2.0
         self.origin_y = -(self.height * self.resolution) / 2.0
         
@@ -87,6 +95,9 @@ class LocalizationOrchestrator(Node):
         # 定时器：监控子进程健康状态 (每2秒检查一次)
         self.process_monitor_timer = self.create_timer(2.0, self.monitor_processes)
 
+        # 定时器：重定位模式下监控磁盘上的 2D 地图文件修改（每1秒检查一次）
+        self.map_watch_timer = self.create_timer(1.0, self.watch_map_files)
+
         # === 4. HTTP Flask 服务 ===
         self.flask_app = Flask(__name__)
         self.setup_flask_routes()
@@ -96,12 +107,12 @@ class LocalizationOrchestrator(Node):
         # === 5. 初始化逻辑 (判断进入哪种模式) ===
         if os.path.exists(self.pcd_path) and os.path.exists(self.yaml_path):
             self.get_logger().info("=========================================")
-            self.get_logger().info("检测到已存在地图文件，进入【重定位模式】")
+            self.get_logger().info(f"检测到地图 {self.map_name} 已存在文件，进入【重定位模式】")
             self.get_logger().info("=========================================")
             self.start_localization_mode()
         else:
             self.get_logger().info("=========================================")
-            self.get_logger().info("未检测到完整地图文件，进入【建图模式】")
+            self.get_logger().info(f"未检测到地图 {self.map_name} 的完整文件，进入【建图模式】")
             self.get_logger().info("=========================================")
             self.start_mapping_mode()
 
@@ -109,14 +120,41 @@ class LocalizationOrchestrator(Node):
     # 核心模式控制逻辑与进程守护
     # ==========================================
 
+    def watch_map_files(self):
+        """文件看门狗定时器：监控地图修改"""
+        if self.mode != "LOCALIZATION":
+            return
+
+        try:
+            pgm_changed = False
+            yaml_changed = False
+
+            # 校验 pgm 修改时间
+            if os.path.exists(self.pgm_path):
+                current_pgm_mtime = os.path.getmtime(self.pgm_path)
+                if current_pgm_mtime != self.last_pgm_mtime:
+                    pgm_changed = True
+
+            # 校验 yaml 修改时间
+            if os.path.exists(self.yaml_path):
+                current_yaml_mtime = os.path.getmtime(self.yaml_path)
+                if current_yaml_mtime != self.last_yaml_mtime:
+                    yaml_changed = True
+
+            # 触发重新载入
+            if pgm_changed or yaml_changed:
+                self.get_logger().warn("检测到磁盘 2D 地图文件（pgm/yaml）发生更改，正在执行热重载并重新发布...")
+                self.load_and_publish_2d_map()
+
+        except Exception as e:
+            self.get_logger().error(f"看门狗检查地图异常: {e}")
+
     def monitor_processes(self):
         """守护定时器：检查子进程状态，意外停止则重启"""
-        # 如果是正在主动切换模式导致的进程停止，则忽略
         if self._intentional_stop:
             return
 
         if self.mode == "MAPPING" and self.fastlio_proc:
-            # poll() 不为 None 说明进程已经退出
             if self.fastlio_proc.poll() is not None:
                 self.get_logger().error("！！！检测到 FastLIO 意外停止，正在尝试重启 ！！！")
                 fastlio_script = os.path.join(self.script_dir, "fastlio.py")
@@ -137,8 +175,8 @@ class LocalizationOrchestrator(Node):
         self.stop_all_processes()
         self.mode = "MAPPING"
         
-        # 重置地图数据
-        self.grid = np.full((self.height, self.width), -1, dtype=np.int8)
+        # 重置地图数据时初始化为全 0（已知可行）
+        self.grid = np.zeros((self.height, self.width), dtype=np.int8)
         self.accumulated_points = []
 
         # 启动 fastlio.py
@@ -185,7 +223,7 @@ class LocalizationOrchestrator(Node):
 
     def stop_all_processes(self):
         """杀死所有运行的子节点进程"""
-        self._intentional_stop = True  # 设置标志位，防止被守护定时器误当做崩溃重启
+        self._intentional_stop = True
 
         if self.fastlio_proc:
             self.get_logger().info("杀死 FastLIO 进程...")
@@ -205,12 +243,11 @@ class LocalizationOrchestrator(Node):
                 self.global_loc_proc.kill()
             self.global_loc_proc = None
             
-        self._intentional_stop = False # 恢复标志位
+        self._intentional_stop = False
 
     # ==========================================
     # 数据回调与地图处理
     # ==========================================
-
     def cloud_callback(self, msg):
         if self.mode != "MAPPING":
             return
@@ -218,7 +255,8 @@ class LocalizationOrchestrator(Node):
         try:
             # 提取点云坐标
             points_gen = pc2.read_points(msg, field_names=("x", "y", "z"), skip_nans=True)
-            points = np.array(list(points_gen))
+            # 显式转换为标准的 (N, 3) 二维浮点数数组
+            points = np.array([[p[0], p[1], p[2]] for p in points_gen], dtype=np.float32)
             
             if len(points) == 0:
                 return
@@ -260,7 +298,8 @@ class LocalizationOrchestrator(Node):
                         if 0 <= sx < self.width and 0 <= sy < self.height:
                             cv2.line(free_mask, (sx, sy), (ix, iy), 1, 1)
 
-            self.grid[(free_mask == 1) & (self.grid == -1)] = 0
+            # 将非障碍物 (100) 区域全部恢复为已知可行 (0)，消除任何写入 -1 的可能
+            self.grid[(free_mask == 1) & (self.grid != 100)] = 0
             
             # 发布 2D 地图
             self.publish_grid_map()
@@ -285,9 +324,9 @@ class LocalizationOrchestrator(Node):
 
     def save_2d_map(self):
         try:
-            pgm_data = np.full((self.height, self.width), 205, dtype=np.uint8)
-            pgm_data[self.grid == 100] = 0
-            pgm_data[self.grid == 0] = 255
+            # 创建全白的背景（255，代表已知可行），不再生成灰色未知区域（205）
+            pgm_data = np.full((self.height, self.width), 255, dtype=np.uint8)
+            pgm_data[self.grid == 100] = 0 # 障碍物保持为纯黑色 (0)
             cv2.imwrite(self.pgm_path, np.flipud(pgm_data))
             
             with open(self.yaml_path, 'w') as f:
@@ -304,6 +343,10 @@ class LocalizationOrchestrator(Node):
             self.get_logger().error("加载2D地图失败：文件不存在")
             return
         try:
+            # 修改：在成功载入数据前更新时间戳，防止触发看门狗再次重载的死循环
+            self.last_pgm_mtime = os.path.getmtime(self.pgm_path)
+            self.last_yaml_mtime = os.path.getmtime(self.yaml_path)
+
             with open(self.yaml_path, 'r') as f:
                 data = yaml.safe_load(f)
                 self.resolution = float(data['resolution'])
@@ -314,11 +357,14 @@ class LocalizationOrchestrator(Node):
             if img is not None:
                 self.height, self.width = img.shape
                 img = np.flipud(img)
-                self.grid = np.full((self.height, self.width), -1, dtype=np.int8)
-                self.grid[img < 10] = 100
-                self.grid[img > 245] = 0
+                
+                # 重新加载时，默认整张图全为可行区域（0）
+                self.grid = np.zeros((self.height, self.width), dtype=np.int8)
+                # 图像中凡是偏黑色（小于 127）的像素，全部转为障碍物（100），其余均为可行
+                self.grid[img < 127] = 100
+                
                 self.publish_grid_map()
-                self.get_logger().info("成功加载并发布本地2D地图。")
+                self.get_logger().info("加载并重新发布本地2D地图成功。")
         except Exception as e:
             self.get_logger().error(f"加载地图异常: {e}")
 
@@ -337,7 +383,6 @@ class LocalizationOrchestrator(Node):
 
     def publish_pose(self):
         try:
-            # 无论建图还是重定位，均获取 map -> base_link
             t = self.tf_buffer.lookup_transform('map', 'base_link', rclpy.time.Time())
             pose = PoseStamped()
             pose.header.stamp = self.get_clock().now().to_msg()
@@ -414,8 +459,17 @@ class LocalizationOrchestrator(Node):
         self.flask_app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False)
 
 def main(args=None):
-    rclpy.init(args=args)
-    node = LocalizationOrchestrator()
+    # 1. 首先利用 argparse 解析命令行中的自定义 `--map` 参数，过滤掉 ROS2 的特有参数
+    parser = argparse.ArgumentParser(description="Weineng Localization orchestrator Node")
+    parser.add_argument('--map', type=str, default='Weineng', help='指定地图名称')
+    parsed_args, ros_args = parser.parse_known_args()
+
+    # 2. 用剥离了自定义参数后的 ros_args 初始化 ROS2 运行环境
+    rclpy.init(args=ros_args)
+    
+    # 3. 将解析得到的地图名称传入节点初始化函数中
+    node = LocalizationOrchestrator(map_name=parsed_args.map)
+    
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
