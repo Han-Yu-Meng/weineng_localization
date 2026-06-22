@@ -1,10 +1,11 @@
+# global_localization.py
+
 import os
 import sys
 import argparse
 import subprocess
 from fins import Node, Group, Agent, DefaultSource
 from sensor import sensor_group
-from gridmap import gridmap_group
 from fastlio import fastlio_group
 
 def global_localization_group():
@@ -123,7 +124,6 @@ if __name__ == "__main__":
         with DefaultSource("weineng_localization"):
             agent.launch(
                 sensor_group(),
-                gridmap_group(map_name=map_name),
                 fastlio_group(),
                 global_localization_group()
             )

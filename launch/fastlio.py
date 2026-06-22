@@ -1,3 +1,5 @@
+# fastlio.py
+
 from fins import Node, Group, LaunchDescription, Agent, DefaultSource
 from sensor import sensor_group
 import os
@@ -140,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("--bag", type=str, help="Path to the ROS2 bag to play", default=None)
     args = parser.parse_args()
 
-    with Agent(name="fastlio", port=1896) as agent:
+    with Agent(name="fastlio") as agent:
         agent.add_config_dir("config")
         agent.log_level("INFO")
         # agent.enable_performance_monitor()
