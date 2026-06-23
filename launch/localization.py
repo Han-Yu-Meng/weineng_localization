@@ -434,7 +434,7 @@ class LocalizationOrchestrator(Node):
             success, msg = self.stop_mapping_mode()
             return jsonify({"success": success, "message": msg})
 
-        @self.flask_app.route('/set_map', methods=['POST'])
+        @self.flask_app.route('/upload_map', methods=['POST'])
         def http_set_map():
             if 'pgm' not in request.files or 'yaml' not in request.files:
                 return jsonify({"success": False, "message": "Missing files (pgm or yaml)"}), 400
