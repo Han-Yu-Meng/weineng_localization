@@ -6,7 +6,7 @@ AiryPreprocess:
   filter_box_min_y: -0.4
   filter_box_max_y: 0.4
   filter_box_min_z: -0.2
-  filter_box_max_z: 0.5
+  filter_box_max_z: 2.0
   lidar_blind_zone: 0.05
   min_reflectivity: 15
   max_reflectivity: 112
