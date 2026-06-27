@@ -1,20 +1,20 @@
-name: "weineng_localization"
+name: weineng_localization
 repos:
-  - name: "ros_bridge"
-    url: "https://github.com/Han-Yu-Meng/ros_bridge"
-    branch: "main"
-  - name: "global_localization"
-    url: "https://github.com/Han-Yu-Meng/global_localization"
-    branch: "main"
-  - name: "FAST_LIO"
-    url: "https://github.com/Han-Yu-Meng/FAST_LIO"
-    branch: "feature/airy"
-  - name: "pointcloud_converter"
-    url: "https://github.com/Han-Yu-Meng/pointcloud_converter"
-    branch: "main"
-  - name: "gridmap_server"
-    url: "https://github.com/Han-Yu-Meng/gridmap_server"
-    branch: "main"
-  - name: "airy_preprocess"
-    url: "https://github.com/Han-Yu-Meng/airy_preprocess"
-    branch: "main"
+    FAST_LIO:
+        url: https://github.com/Han-Yu-Meng/FAST_LIO
+        version: feature/airy
+    airy_preprocess:
+        url: https://github.com/Han-Yu-Meng/airy_preprocess.git
+        version: main
+    global_localization:
+        url: https://github.com/Han-Yu-Meng/global_localization
+        version: main
+    gridmap_server:
+        url: https://github.com/Han-Yu-Meng/gridmap_server
+        version: main
+    pointcloud_converter:
+        url: https://github.com/Han-Yu-Meng/pointcloud_converter
+        version: main
+    ros_bridge:
+        url: https://github.com/Han-Yu-Meng/ros_bridge
+        version: main
